@@ -1,6 +1,6 @@
 [package]
 name = "timesplit"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2024"
 
 [profile.release]
@@ -25,3 +25,4 @@ config = { version = "0.15.18", features = ["toml"], default-features = false }
 dirs = { version = "6.0.0", default-features = false }
 toml = { version = "0.9.8", features = ["display"], default-features = false }
 bytes = { version = "1.10.1", default-features = false }
+clap = { version = "4.5.50", default-features = false, features = ["derive", "std", "wrap_help"] }

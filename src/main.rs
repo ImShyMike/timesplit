@@ -3,7 +3,7 @@ mod helpers;
 mod http;
 mod routes;
 
-use std::{fs, time::Duration};
+use std::{fs, io::ErrorKind, time::Duration};
 
 use ::config::{Config, Environment, File};
 use axum::body::Body;
@@ -14,6 +14,7 @@ use axum::{
     response::{IntoResponse, Redirect},
     routing::{get, post},
 };
+use clap::{Parser, Subcommand};
 use reqwest::Client;
 
 use tower_http::trace::TraceLayer;
@@ -38,6 +39,19 @@ pub struct AppState {
     servers: Vec<(String, String)>,
 }
 
+#[derive(Parser, Debug)]
+#[command(name = NAME, version = VERSION, about = "timesplit - wakatime relay", arg_required_else_help = true)]
+struct Args {
+    #[command(subcommand)]
+    command: Command,
+}
+
+#[derive(Subcommand, Debug)]
+enum Command {
+    /// Start the HTTP server
+    Run,
+}
+
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt()
@@ -46,7 +60,15 @@ async fn main() {
         )
         .init();
 
-    info!("Running {} version {}", NAME, VERSION);
+    let args = Args::parse();
+
+    match args.command {
+        Command::Run => run_server().await,
+    }
+}
+
+async fn run_server() {
+    info!("Running {} server version {}", NAME, VERSION);
 
     let home_dir = match dirs::home_dir() {
         Some(path) => path,
@@ -133,6 +155,19 @@ async fn main() {
 
     info!("Listening on http://{}", settings.host);
 
-    let listener = tokio::net::TcpListener::bind(settings.host).await.unwrap();
-    axum::serve(listener, app).await.unwrap();
+    let listener = match tokio::net::TcpListener::bind(&settings.host).await {
+        Ok(listener) => listener,
+        Err(err) => {
+            match err.kind() {
+                ErrorKind::AddrInUse => error!("The address {} is already in use.", settings.host),
+                _ => error!("Failed to bind to {}: {}", settings.host, err),
+            }
+
+            std::process::exit(1);
+        }
+    };
+
+    if let Err(err) = axum::serve(listener, app).await {
+        error!("Server error: {}", err);
+    }
 }
