@@ -3,7 +3,12 @@ mod helpers;
 mod http;
 mod routes;
 
-use std::{fs, io::ErrorKind, time::Duration};
+use std::{
+    fs,
+    io::ErrorKind,
+    path::{Path, PathBuf},
+    time::Duration,
+};
 
 use ::config::{Config, Environment, File};
 use axum::body::Body;
@@ -50,6 +55,38 @@ struct Args {
 enum Command {
     /// Start the HTTP server
     Run,
+    /// Change the configuration
+    #[command(subcommand, arg_required_else_help = true)]
+    Config(ConfigCommand),
+}
+
+#[derive(Subcommand, Debug)]
+enum ConfigCommand {
+    /// List configured servers
+    List,
+    /// Add a new server
+    #[command(arg_required_else_help = true)]
+    Add {
+        /// Base URL of the server
+        url: String,
+        /// API key for the server
+        key: String,
+        /// Insert as the main server instead of a clone
+        #[arg(long)]
+        main: bool,
+    },
+    /// Remove a server by its index (use `config list` to find indexes)
+    #[command(arg_required_else_help = true)]
+    Remove {
+        /// Index of the server to remove
+        index: usize,
+    },
+    /// Make a server the main server by its index
+    #[command(arg_required_else_help = true)]
+    Main {
+        /// Index of the server to make main
+        index: usize,
+    },
 }
 
 #[tokio::main]
@@ -64,12 +101,142 @@ async fn main() {
 
     match args.command {
         Command::Run => run_server().await,
+        Command::Config(action) => change_config(action),
     }
 }
 
-async fn run_server() {
-    info!("Running {} server version {}", NAME, VERSION);
+fn save_config(config: &AppConfig, config_path: &Path) {
+    match toml::to_string_pretty(&config) {
+        Ok(serialized) => {
+            if let Err(err) = fs::write(config_path, serialized) {
+                error!(
+                    "Failed to write config to {}: {}",
+                    config_path.display(),
+                    err
+                );
+                std::process::exit(1);
+            } else {
+                info!("Configuration saved to '{}'", config_path.display());
+            }
+        }
+        Err(err) => {
+            error!("Failed to serialize config: {}", err);
+            std::process::exit(1);
+        }
+    }
+}
 
+fn change_config(action: ConfigCommand) {
+    let config_path = get_config_path();
+
+    ensure_config_file_exists(&config_path);
+
+    let mut settings = load_config(&config_path);
+
+    match action {
+        ConfigCommand::List => list_servers(&settings),
+        ConfigCommand::Add { url, key, main } => {
+            add_server(&mut settings, url, key, main);
+            save_config(&settings, &config_path);
+        }
+        ConfigCommand::Remove { index } => {
+            remove_server(&mut settings, index);
+            save_config(&settings, &config_path);
+        }
+        ConfigCommand::Main { index } => {
+            set_main_server(&mut settings, index);
+            save_config(&settings, &config_path);
+        }
+    }
+}
+
+fn list_servers(settings: &AppConfig) {
+    if settings.servers.is_empty() {
+        println!("No servers configured.");
+        return;
+    }
+
+    println!("Configured servers:");
+    for (idx, (url, key)) in settings.servers.iter().enumerate() {
+        let role = if idx == 0 { " (main)" } else { "" };
+        println!("{}: {}{} [key {}]", idx, url, role, mask_key(key));
+    }
+}
+
+fn add_server(settings: &mut AppConfig, url: String, key: String, main: bool) {
+    let trimmed_url = url.trim();
+    if trimmed_url.is_empty() {
+        error!("Server URL cannot be empty.");
+        std::process::exit(1);
+    }
+
+    if key.trim().is_empty() {
+        error!("Server key cannot be empty.");
+        std::process::exit(1);
+    }
+
+    if main {
+        settings.servers.insert(0, (trimmed_url.to_string(), key));
+        info!("Added server '{}' as the main server", trimmed_url);
+    } else {
+        settings.servers.push((trimmed_url.to_string(), key));
+        info!("Added server '{}'", trimmed_url);
+    }
+}
+
+fn remove_server(settings: &mut AppConfig, index: usize) {
+    if settings.servers.is_empty() {
+        error!("No servers to remove.");
+        std::process::exit(1);
+    }
+
+    if index >= settings.servers.len() {
+        error!("Server index {} is out of range.", index);
+        std::process::exit(1);
+    }
+
+    if settings.servers.len() == 1 {
+        error!("Cannot remove the last remaining server. Add a new server first.");
+        std::process::exit(1);
+    }
+
+    let removed = settings.servers.remove(index);
+    info!("Removed server '{}'", removed.0);
+}
+
+fn set_main_server(settings: &mut AppConfig, index: usize) {
+    if settings.servers.is_empty() {
+        error!("No servers to set as main.");
+        std::process::exit(1);
+    }
+
+    if index >= settings.servers.len() {
+        error!("Server index {} is out of range.", index);
+        std::process::exit(1);
+    }
+
+    if index == 0 {
+        info!(
+            "Server '{}' is already the main server.",
+            settings.servers[0].0
+        );
+        return;
+    }
+
+    let main_server = settings.servers.remove(index);
+    settings.servers.insert(0, main_server.clone());
+    info!("Set server '{}' as the main server.", main_server.0);
+}
+
+fn mask_key(key: &str) -> String {
+    if key.len() <= 8 {
+        "*".repeat(key.len())
+    } else {
+        format!("{}...{}", &key[..4], &key[key.len() - 4..])
+    }
+}
+
+fn get_config_path() -> PathBuf {
     let home_dir = match dirs::home_dir() {
         Some(path) => path,
         None => {
@@ -78,29 +245,19 @@ async fn run_server() {
         }
     };
 
-    let config_path = home_dir.join(".timesplit.toml");
+    home_dir.join(".timesplit.toml")
+}
 
+fn ensure_config_file_exists(config_path: &Path) {
     if !config_path.exists() {
         let default_config = AppConfig::default();
-
-        match toml::to_string_pretty(&default_config) {
-            Ok(serialized) => {
-                if let Err(err) = fs::write(&config_path, serialized) {
-                    warn!(
-                        "Failed to write default config to {}: {}",
-                        config_path.display(),
-                        err
-                    );
-                } else {
-                    info!("Created default config at '{}'", config_path.display());
-                }
-            }
-            Err(err) => warn!("Failed to serialize default config: {}", err),
-        }
+        save_config(&default_config, config_path);
     }
+}
 
-    let settings: AppConfig = match Config::builder()
-        .add_source(File::from(config_path.clone()).required(false))
+fn load_config(config_path: &Path) -> AppConfig {
+    match Config::builder()
+        .add_source(File::from(config_path).required(false))
         .add_source(Environment::with_prefix("TIMESPLIT"))
         .build()
     {
@@ -115,7 +272,17 @@ async fn run_server() {
             warn!("Failed to load configuration: {}", err);
             AppConfig::default()
         }
-    };
+    }
+}
+
+async fn run_server() {
+    info!("Running {} server version {}", NAME, VERSION);
+
+    let config_path = get_config_path();
+
+    ensure_config_file_exists(&config_path);
+
+    let settings = load_config(&config_path);
 
     if settings.servers.is_empty() {
         error!("No servers configured! Please add at least one server to your configuration.");
