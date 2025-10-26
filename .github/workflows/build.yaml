@@ -18,3 +18,10 @@ jobs:
             x86_64-pc-windows-gnu
             aarch64-apple-darwin
             aarch64-apple-ios
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: timesplit-${{ github.sha }}
+          path: |
+            target/*/release/timesplit*
+          if-no-files-found: error
