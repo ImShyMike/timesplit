@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: zijiren233/rust-cross-build@v1
+      - uses: zijiren233/rust-build-action@v1
         with:
           targets: |
             x86_64-unknown-linux-musl
