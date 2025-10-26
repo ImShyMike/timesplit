@@ -1,7 +1,11 @@
 [package]
 name = "timesplit"
+description = "The easy way to use multiple WakaTime compatible instances at once!"
 version = "0.3.0"
 edition = "2024"
+license = "GPL-3.0"
+readme = "README.md"
+repository = "https://github.com/ImShyMike/timesplit"
 
 [profile.release]
 opt-level = "z"
