@@ -1,11 +1,12 @@
-<center><h1><a href="https://crates.io/crates/timesplit">timesplit</a></h1>
+<center><h1><a href="https://crates.io/crates/timesplit">timesplit</a></h1></center>
 
-The easy way to use multiple WakaTime compatible instances at once!
+<center>The easy way to use multiple WakaTime compatible instances at once!</center>
 
-<img alt="GitHub last commit" src="https://img.shields.io/github/last-commit/ImShyMike/timesplit?style=flat-square&color=green">
-<img alt="Crates.io Version" src="https://img.shields.io/crates/v/timesplit?style=flat-square&color=yellow">
-<img alt="Crates.io License" src="https://img.shields.io/crates/l/timesplit?style=flat-square&color=orange">
-<img alt="Crates.io Size" src="https://img.shields.io/crates/size/timesplit?style=flat-square&color=red">
+<center>
+    <img alt="GitHub last commit" src="https://img.shields.io/github/last-commit/ImShyMike/timesplit?style=flat-square&color=green">
+    <img alt="Crates.io Version" src="https://img.shields.io/crates/v/timesplit?style=flat-square&color=yellow">
+    <img alt="Crates.io License" src="https://img.shields.io/crates/l/timesplit?style=flat-square&color=orange">
+    <img alt="Crates.io Size" src="https://img.shields.io/crates/size/timesplit?style=flat-square&color=red">
 </center>
 
 ---
