@@ -18,10 +18,54 @@ jobs:
             x86_64-pc-windows-gnu
             aarch64-apple-darwin
             aarch64-apple-ios
-      - name: Upload build artifacts
+      - name: Determine crate version
+        id: crate_version
+        run: |
+          set -euo pipefail
+          VERSION=$(cargo metadata --format-version 1 --no-deps | jq -r '.packages[] | select(.name=="timesplit") | .version')
+          echo "PACKAGE_VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "package_version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Collect build outputs
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          cp target/x86_64-unknown-linux-musl/release/timesplit "dist/timesplit-${PACKAGE_VERSION}-x86_64-unknown-linux-musl"
+          cp target/aarch64-unknown-linux-musl/release/timesplit "dist/timesplit-${PACKAGE_VERSION}-aarch64-unknown-linux-musl"
+          cp target/x86_64-pc-windows-gnu/release/timesplit.exe "dist/timesplit-${PACKAGE_VERSION}-x86_64-pc-windows-gnu.exe"
+          cp target/aarch64-apple-darwin/release/timesplit "dist/timesplit-${PACKAGE_VERSION}-aarch64-apple-darwin"
+          cp target/aarch64-apple-ios/release/timesplit "dist/timesplit-${PACKAGE_VERSION}-aarch64-apple-ios"
+      - name: Upload x86_64-unknown-linux-musl binary
         uses: actions/upload-artifact@v4
         with:
-          name: timesplit-${{ github.sha }}
-          path: |
-            target/*/release/timesplit*
+          name: timesplit-${{ steps.crate_version.outputs.package_version }}-x86_64-unknown-linux-musl
+          path: dist/timesplit-${{ steps.crate_version.outputs.package_version }}-x86_64-unknown-linux-musl
+          if-no-files-found: error
+
+      - name: Upload aarch64-unknown-linux-musl binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: timesplit-${{ steps.crate_version.outputs.package_version }}-aarch64-unknown-linux-musl
+          path: dist/timesplit-${{ steps.crate_version.outputs.package_version }}-aarch64-unknown-linux-musl
+          if-no-files-found: error
+
+      - name: Upload x86_64-pc-windows-gnu binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: timesplit-${{ steps.crate_version.outputs.package_version }}-x86_64-pc-windows-gnu
+          path: dist/timesplit-${{ steps.crate_version.outputs.package_version }}-x86_64-pc-windows-gnu.exe
+          if-no-files-found: error
+
+      - name: Upload aarch64-apple-darwin binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: timesplit-${{ steps.crate_version.outputs.package_version }}-aarch64-apple-darwin
+          path: dist/timesplit-${{ steps.crate_version.outputs.package_version }}-aarch64-apple-darwin
+          if-no-files-found: error
+
+      - name: Upload aarch64-apple-ios binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: timesplit-${{ steps.crate_version.outputs.package_version }}-aarch64-apple-ios
+          path: dist/timesplit-${{ steps.crate_version.outputs.package_version }}-aarch64-apple-ios
           if-no-files-found: error
