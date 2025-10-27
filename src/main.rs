@@ -45,7 +45,7 @@ pub struct AppState {
 }
 
 #[derive(Parser, Debug)]
-#[command(name = NAME, version = VERSION, about = "timesplit - wakatime relay", arg_required_else_help = true)]
+#[command(name = NAME, version = VERSION, about = "timesplit - the easy to use wakatime relay", arg_required_else_help = true)]
 struct Args {
     #[command(subcommand)]
     command: Command,

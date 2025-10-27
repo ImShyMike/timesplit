@@ -51,3 +51,58 @@ Commands:
 ### Windows/MacOS
 
 This will need manual installation for now :(
+
+## Usage
+
+In your `~/.wakatime.cfg` file, set the API url to `timesplit`'s addresss.
+
+```cfg
+[settings]
+api_key = 39949664-5a5f-4c7d-95b2-44a864f67b6a
+api_url = http://localhost:25893
+```
+
+<sup>(This snippet uses `timesplit`'s  default port)</sup>
+
+## Configuration
+
+```bash
+$ timesplit config
+Change the configuration
+
+Usage:
+
+Commands:
+  list    List configured servers
+  add     Add a new server
+  remove  Remove a server by its index (use `config list` to find indexes)
+  main    Make a server the main server by its index
+  help    Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help  Print help
+```
+
+## Known compatible backends
+
+This program is know to be compatible with the following backend servers:
+
+- [WakaTime](https://github.com/wakatime)
+- [Wakapi](https://github.com/muety/wakapi)
+- [Rustytime](https://github.com/ImShyMike/rustytime)
+<br><sup>you should check this one out ;)</sup>
+- [Hackatime](https://github.com/hackclub/hackatime)
+- [Hackatime (old)](https://github.com/hackclub/archived-hacktime)
+- [OtterTime](https://github.com/SkyfallWasTaken/ottertime)
+
+<sub>(all of the above servers were tested using the vscode extension)</sub>
+
+Others will likely work, this is just a list of verified working servers.
+
+## Issues
+
+Please feel free to [open an issue](https://github.com/ImShyMike/timesplit/issues/new) on the github if you come across a bug.
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=imshymike/timesplit&type=Timeline)](https://www.star-history.com/#imshymike/timesplit&Timeline)
