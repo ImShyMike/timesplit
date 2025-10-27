@@ -72,7 +72,7 @@ function Create-ScheduledTask-Schtasks {
     param([string]$exePath)
     try {
         $quoted = '"' + $exePath + '" run'
-        $cmd = "schtasks /Create /SC ONSTART /TN \"$TaskName\" /TR $quoted /RL HIGHEST /F /RU SYSTEM"
+        $cmd = "schtasks /Create /SC ONSTART /TN `"$TaskName`" /TR $quoted /RL HIGHEST /F /RU SYSTEM"
         Write-Info "Running: $cmd"
         $proc = Start-Process -FilePath schtasks -ArgumentList "/Create","/SC","ONSTART","/TN","$TaskName","/TR",$quoted,"/RL","HIGHEST","/F","/RU","SYSTEM" -NoNewWindow -PassThru -Wait -ErrorAction Stop
         Write-Success "Scheduled Task '$TaskName' created (schtasks)."
@@ -146,7 +146,7 @@ function Uninstall-Program {
             Remove-Item -Path $InstallDir -Recurse -Force
             Write-Success "Removed $InstallDir"
         } catch {
-            Write-Err "Failed to remove $InstallDir: $_"
+            Write-Err "Failed to remove ${InstallDir}: $_"
         }
     } else {
         Write-Info "$InstallDir not present"
