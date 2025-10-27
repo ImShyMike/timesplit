@@ -1,8 +1,4 @@
-<p align="center">
-  <a href="https://crates.io/crates/timesplit">
-    <h1>timesplit</h1>
-  </a>
-</p>
+<h1 align="center"><a href="https://crates.io/crates/timesplit">timesplit</a></h1>
 <p align="center">The easy way to use multiple WakaTime compatible instances at once!</p>
 
 <p align="center">
