@@ -17,6 +17,8 @@
 
 Prebuilt binaries can be found for all platforms in the [releases section](https://github.com/ImShyMike/timesplit/releases) of the repository.
 
+You can also install the app from cargo with `cargo install timesplit`.
+
 ## Quick installation
 
 The installation manager scripts will download the latest version and keep `timesplit run` always running in the background. They can also uninstall the program, check the installation status and update the installed version.
@@ -97,6 +99,10 @@ _(This snippet uses `timesplit`'s default port.)_
 
 ## Configuration
 
+The configuration file can be found in your home directory at `~/.timesplit.toml`.
+
+### Quick config
+
 ```bash
 $ timesplit config
 Change the configuration
@@ -113,6 +119,9 @@ Commands:
 Options:
   -h, --help  Print help
 ```
+
+> [!WARNING]  
+> You may need to run the install script again after configuring the app! (using the `update` command)
 
 ## Known compatible backends
 
