@@ -1,4 +1,5 @@
-<h1 align="center"><a href="https://crates.io/crates/timesplit">timesplit</a></h1>
+<p align="center"><a href="https://crates.io/crates/timesplit"><img src="https://raw.githubusercontent.com/ImShyMike/timesplit/refs/heads/main/assets/text.svg" alt="timesplit"></a></p>
+
 <p align="center">The easy way to use multiple WakaTime compatible instances at once!</p>
 
 <p align="center">
@@ -35,8 +36,16 @@ curl -fsSL https://raw.githubusercontent.com/ImShyMike/timesplit/refs/heads/main
 Download the install script and run it:
 
 ```bash
-curl -s -o install.sh https://raw.githubusercontent.com/ImShyMike/timesplit/refs/heads/main/install.sh
-./install.sh
+$ curl -s -o install.sh https://raw.githubusercontent.com/ImShyMike/timesplit/refs/heads/main/install.sh
+$ ./install.sh
+Usage: ./install.sh [COMMAND]
+
+Commands:
+    install     Install timesplit and set up autorun
+    uninstall   Remove timesplit and stop autorun
+    update      Update timesplit to the latest version
+    status      Check installation and service status
+    help        Show this help message
 ```
 
 ### Windows/MacOS
