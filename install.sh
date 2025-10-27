@@ -12,12 +12,15 @@ MACHINE=$(uname -m)
 case "$MACHINE" in
     aarch64|arm64)
         ARCH="aarch64"
+        TARGET_TRIPLE="aarch64-unknown-linux-musl"
         ;;
     x86_64|amd64)
         ARCH="x86_64"
+        TARGET_TRIPLE="x86_64-unknown-linux-musl"
         ;;
     *)
         ARCH="$MACHINE"
+        TARGET_TRIPLE=""
         ;;
 esac
 
@@ -39,6 +42,10 @@ print_info() {
 }
 
 get_download_url() {
+    if [ -z "${TARGET_TRIPLE:-}" ]; then
+        return 1
+    fi
+
     # Fetch latest release JSON
     if ! RELEASE_JSON=$(curl -sL "${GH_API}"); then
         return 1
@@ -53,22 +60,13 @@ get_download_url() {
 
     VERSION=${TAG#v}
 
-    # Look for an asset whose browser_download_url contains the expected filename
-    EXPECTED_NAME="timesplit-${VERSION}-${ARCH}-unknown-linux-musl"
+    EXPECTED_NAME="${PROGRAM_NAME}-${VERSION}-${TARGET_TRIPLE}"
+    EXPECTED_ASSET="$EXPECTED_NAME"
     DOWNLOAD_URL=$(printf '%s' "$RELEASE_JSON" \
         | grep -oE '"browser_download_url"[[:space:]]*:[[:space:]]*"[^"]+' \
         | sed -E 's/"browser_download_url"[[:space:]]*:[[:space:]]*"//' \
-        | grep -F "$EXPECTED_NAME" || true)
-
-    # If not found for this arch, try x86_64 as a fallback
-    if [ -z "$DOWNLOAD_URL" ] && [ "$ARCH" != "x86_64" ]; then
-        print_info "No asset for ${ARCH} found; falling back to x86_64 asset if available"
-        EXPECTED_NAME="timesplit-${VERSION}-x86_64-unknown-linux-musl"
-        DOWNLOAD_URL=$(printf '%s' "$RELEASE_JSON" \
-            | grep -oE '"browser_download_url"[[:space:]]*:[[:space:]]*"[^"]+' \
-            | sed -E 's/"browser_download_url"[[:space:]]*:[[:space:]]*"//' \
-            | grep -F "$EXPECTED_NAME" || true)
-    fi
+        | grep -F "$EXPECTED_NAME" \
+        | head -n1 || true)
 
     # If a URL was found, print it to stdout and succeed
     if [ -n "$DOWNLOAD_URL" ]; then
@@ -87,17 +85,22 @@ check_root() {
 }
 
 install_program() {
+    if [ -z "${TARGET_TRIPLE:-}" ]; then
+        print_error "Unsupported architecture '${ARCH}'. Available Linux binaries: aarch64, x86_64."
+        exit 1
+    fi
+
     # Try to get a dynamic DOWNLOAD_URL
     print_info "Querying GitHub for latest release..."
     if DYN_URL=$(get_download_url); then
         DOWNLOAD_URL="$DYN_URL"
-        print_info "Found release asset: ${DOWNLOAD_URL}"
+        print_info "Found release asset for ${TARGET_TRIPLE}: ${DOWNLOAD_URL}"
     else
-        print_error "Could not determine latest release asset from GitHub; exiting."
+        print_error "Could not determine latest release asset from GitHub; expected asset '${EXPECTED_ASSET:-${PROGRAM_NAME}-${TARGET_TRIPLE:-unknown}}'."
         exit 1
     fi
 
-    print_info "Installing ${PROGRAM_NAME}..."
+    print_info "Installing ${PROGRAM_NAME} ${VERSION:-latest} for ${TARGET_TRIPLE}..."
     
     # Download the binary
     print_info "Downloading ${PROGRAM_NAME} from ${DOWNLOAD_URL}..."
@@ -195,18 +198,11 @@ show_usage() {
 Usage: $0 [COMMAND]
 
 Commands:
-    install     Install ${PROGRAM_NAME} and set up autorun
-    uninstall   Remove ${PROGRAM_NAME} and stop autorun
-    update      Update ${PROGRAM_NAME} to the latest version
+    install     Install ${PROGRAM_NAME} and set up autorun (requires sudo)
+    uninstall   Remove ${PROGRAM_NAME} and stop autorun (requires sudo) 
+    update      Update ${PROGRAM_NAME} to the latest version (requires sudo)
     status      Check installation and service status
     help        Show this help message
-
-Examples:
-    sudo $0 install
-    sudo $0 uninstall
-    sudo $0 update
-    $0 status
-    $0 help
 EOF
 }
 
