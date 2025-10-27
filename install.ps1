@@ -8,9 +8,9 @@ $InstallPath = Join-Path -Path $InstallDir -ChildPath "$ProgramName.exe"
 $TaskName = 'TimeSplit'
 $GhApi = 'https://api.github.com/repos/ImShyMike/timesplit/releases/latest'
 
-function Write-Info([string]$m){ Write-Host "→ $m" -ForegroundColor Yellow }
-function Write-Success([string]$m){ Write-Host "✓ $m" -ForegroundColor Green }
-function Write-Err([string]$m){ Write-Host "✗ $m" -ForegroundColor Red }
+function Write-Info([string]$m){ Write-Host "-> $m" -ForegroundColor Yellow }
+function Write-Success([string]$m){ Write-Host "[OK] $m" -ForegroundColor Green }
+function Write-Err([string]$m){ Write-Host "[ERR] $m" -ForegroundColor Red }
 
 function Ensure-Admin {
     $isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
@@ -121,7 +121,7 @@ function Install-Program {
             Create-ScheduledTask-Schtasks -exePath $InstallPath | Out-Null
         }
     } else {
-        Write-Info "Register-ScheduledTask not available; using schtasks.exe"
+        Write-Info 'Register-ScheduledTask not available; using schtasks.exe'
         Create-ScheduledTask-Schtasks -exePath $InstallPath | Out-Null
     }
 
@@ -189,5 +189,5 @@ switch ($Command.ToLower()) {
     'update' { Uninstall-Program; Install-Program }
     'status' { Show-Status }
     'help' { Show-Usage }
-    default { Write-Err "Invalid command: $Command`n"; Show-Usage; exit 1 }
+    default { Write-Err ("Invalid command: {0}`n" -f $Command); Show-Usage; exit 1 }
 }

@@ -54,7 +54,7 @@ Commands:
 One liner: (needs an elevated PowerShell window)
 
 ```powershell
-iwr -useb https://raw.githubusercontent.com/ImShyMike/timesplit/refs/heads/main/install.ps1 | iex; .\install.ps1 update
+iwr -useb https://raw.githubusercontent.com/ImShyMike/timesplit/refs/heads/main/install.ps1 -OutFile install.ps1; powershell -ExecutionPolicy Bypass -Command ".\install.ps1 update"
 ```
 
 ### macOS
