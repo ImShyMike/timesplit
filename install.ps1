@@ -5,7 +5,8 @@ param(
 $ProgramName = 'timesplit'
 $InstallDir = Join-Path -Path ${env:ProgramFiles} -ChildPath $ProgramName
 $InstallPath = Join-Path -Path $InstallDir -ChildPath "$ProgramName.exe"
-$TaskName = 'TimeSplit'
+$StartupFolder = [Environment]::GetFolderPath('Startup')
+$ShortcutPath = Join-Path -Path $StartupFolder -ChildPath "$ProgramName.lnk"
 $GhApi = 'https://api.github.com/repos/ImShyMike/timesplit/releases/latest'
 
 function Write-Info([string]$m){ Write-Host "-> $m" -ForegroundColor Yellow }
@@ -53,33 +54,70 @@ function Get-DownloadInfo {
     }
 }
 
-function Create-ScheduledTask-PowerShell {
-    param([string]$exePath)
+function Add-ToPath {
+    param([string]$directory)
+    
     try {
-        $action = New-ScheduledTaskAction -Execute $exePath -Argument 'run'
-        $trigger = New-ScheduledTaskTrigger -AtStartup
-        Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger -RunLevel Highest -User 'SYSTEM' -Force | Out-Null
-        Write-Success "Scheduled Task '$TaskName' created (PowerShell ScheduledTask API)."
-        Start-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
+        $currentPath = [Environment]::GetEnvironmentVariable('Path', 'Machine')
+        
+        if ($currentPath -split ';' | Where-Object { $_ -eq $directory }) {
+            Write-Info "$directory is already in PATH"
+            return
+        }
+        
+        $newPath = $currentPath.TrimEnd(';') + ';' + $directory
+        [Environment]::SetEnvironmentVariable('Path', $newPath, 'Machine')
+        Write-Success "Added $directory to system PATH"
+        Write-Info "You may need to restart your terminal for PATH changes to take effect"
+    } catch {
+        Write-Err "Failed to add to PATH: $_"
+    }
+}
+
+function Remove-FromPath {
+    param([string]$directory)
+    
+    try {
+        $currentPath = [Environment]::GetEnvironmentVariable('Path', 'Machine')
+        $pathArray = $currentPath -split ';' | Where-Object { $_ -and $_ -ne $directory }
+        $newPath = $pathArray -join ';'
+        
+        [Environment]::SetEnvironmentVariable('Path', $newPath, 'Machine')
+        Write-Success "Removed $directory from system PATH"
+    } catch {
+        Write-Err "Failed to remove from PATH: $_"
+    }
+}
+
+function Create-StartupShortcut {
+    param([string]$targetPath)
+    
+    try {
+        $WScriptShell = New-Object -ComObject WScript.Shell
+        $Shortcut = $WScriptShell.CreateShortcut($ShortcutPath)
+        $Shortcut.TargetPath = $targetPath
+        $Shortcut.Arguments = "run"
+        $Shortcut.WorkingDirectory = $InstallDir
+        $Shortcut.WindowStyle = 7  # Minimized
+        $Shortcut.Description = "TimeSplit - Automatic startup"
+        $Shortcut.Save()
+        
+        Write-Success "Created startup shortcut at $ShortcutPath"
         return $true
     } catch {
-        Write-Err "PowerShell ScheduledTask creation failed: $_"
+        Write-Err "Failed to create startup shortcut: $_"
         return $false
     }
 }
 
-function Create-ScheduledTask-Schtasks {
-    param([string]$exePath)
-    try {
-        $quoted = '"' + $exePath + '" run'
-        $cmd = "schtasks /Create /SC ONSTART /TN `"$TaskName`" /TR $quoted /RL HIGHEST /F /RU SYSTEM"
-        Write-Info "Running: $cmd"
-        $proc = Start-Process -FilePath schtasks -ArgumentList "/Create","/SC","ONSTART","/TN","$TaskName","/TR",$quoted,"/RL","HIGHEST","/F","/RU","SYSTEM" -NoNewWindow -PassThru -Wait -ErrorAction Stop
-        Write-Success "Scheduled Task '$TaskName' created (schtasks)."
-        return $true
-    } catch {
-        Write-Err "schtasks creation failed: $_"
-        return $false
+function Remove-StartupShortcut {
+    if (Test-Path $ShortcutPath) {
+        try {
+            Remove-Item -Path $ShortcutPath -Force
+            Write-Success "Removed startup shortcut"
+        } catch {
+            Write-Err "Failed to remove startup shortcut: $_"
+        }
     }
 }
 
@@ -114,33 +152,39 @@ function Install-Program {
 
     Write-Success "Binary installed to $InstallPath (version $($downloadInfo.Version))"
 
-    # Try PowerShell ScheduledTask API first, fallback to schtasks.exe
-    if (Get-Command -Name Register-ScheduledTask -ErrorAction SilentlyContinue) {
-        if (-not (Create-ScheduledTask-PowerShell -exePath $InstallPath)) {
-            Write-Info "Falling back to schtasks.exe"
-            Create-ScheduledTask-Schtasks -exePath $InstallPath | Out-Null
-        }
-    } else {
-        Write-Info 'Register-ScheduledTask not available; using schtasks.exe'
-        Create-ScheduledTask-Schtasks -exePath $InstallPath | Out-Null
+    # Add to PATH
+    Add-ToPath -directory $InstallDir
+
+    # Create startup shortcut
+    Create-StartupShortcut -targetPath $InstallPath
+
+    # Start the program immediately
+    Write-Info "Starting $ProgramName..."
+    try {
+        Start-Process -FilePath $InstallPath -ArgumentList "run" -WindowStyle Minimized
+        Write-Success "$ProgramName started successfully!"
+    } catch {
+        Write-Err "Failed to start $ProgramName: $_"
+        Write-Info "You can start it manually with: $ProgramName run"
     }
 
-    Write-Success "$ProgramName installed and scheduled to run at startup."
-    Write-Info "Use 'install.ps1 status' to check the installation."
+    Write-Success "$ProgramName installed successfully!"
+    Write-Info "The program is now running and will start automatically on next login."
+    Write-Info "Use 'install.ps1 status' to check installation."
 }
 
 function Uninstall-Program {
     Ensure-Admin
 
-    Write-Info "Removing scheduled task (if present)"
-    if (Get-Command -Name Unregister-ScheduledTask -ErrorAction SilentlyContinue) {
-        try { Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction SilentlyContinue }
-        catch { }
-    }
+    # Remove startup shortcut
+    Write-Info "Removing startup shortcut (if present)"
+    Remove-StartupShortcut
 
-    # Also try schtasks delete
-    try { schtasks /Delete /TN $TaskName /F > $null 2>&1 } catch { }
+    # Remove from PATH
+    Write-Info "Removing from system PATH"
+    Remove-FromPath -directory $InstallDir
 
+    # Remove installation directory
     if (Test-Path $InstallDir) {
         try {
             Remove-Item -Path $InstallDir -Recurse -Force
@@ -156,31 +200,65 @@ function Uninstall-Program {
 }
 
 function Show-Status {
+    Write-Host "`n=== Installation Status ===" -ForegroundColor Cyan
+    
+    # Check binary installation
     if (Test-Path $InstallPath) {
         Write-Success "$ProgramName is installed at $InstallPath"
+        try {
+            $version = & $InstallPath --version 2>$null
+            if ($version) {
+                Write-Info "Version: $version"
+            }
+        } catch { }
     } else {
         Write-Err "$ProgramName is not installed"
     }
 
-    Write-Info "Scheduled task status:"
-    if (Get-Command -Name Get-ScheduledTask -ErrorAction SilentlyContinue) {
-        try {
-            $task = Get-ScheduledTask -TaskName $TaskName -ErrorAction Stop
-            $task | Format-List | Out-Host
-        } catch {
-            Write-Info "Scheduled task '$TaskName' not found via PowerShell API."
-        }
+    # Check PATH
+    Write-Host "`n=== PATH Status ===" -ForegroundColor Cyan
+    $currentPath = [Environment]::GetEnvironmentVariable('Path', 'Machine')
+    if ($currentPath -split ';' | Where-Object { $_ -eq $InstallDir }) {
+        Write-Success "$InstallDir is in system PATH"
+    } else {
+        Write-Err "$InstallDir is NOT in system PATH"
     }
 
-    try {
-        schtasks /Query /TN $TaskName 2>$null
-    } catch {
-        Write-Info "No schtasks entry for $TaskName"
+    # Check startup shortcut
+    Write-Host "`n=== Startup Status ===" -ForegroundColor Cyan
+    if (Test-Path $ShortcutPath) {
+        Write-Success "Startup shortcut exists at $ShortcutPath"
+        try {
+            $WScriptShell = New-Object -ComObject WScript.Shell
+            $Shortcut = $WScriptShell.CreateShortcut($ShortcutPath)
+            Write-Info "Target: $($Shortcut.TargetPath)"
+            Write-Info "Arguments: $($Shortcut.Arguments)"
+        } catch { }
+    } else {
+        Write-Err "Startup shortcut does NOT exist"
     }
+
+    # Check if process is running
+    Write-Host "`n=== Process Status ===" -ForegroundColor Cyan
+    $process = Get-Process -Name $ProgramName -ErrorAction SilentlyContinue
+    if ($process) {
+        Write-Success "$ProgramName is currently running (PID: $($process.Id))"
+    } else {
+        Write-Info "$ProgramName is not currently running"
+    }
+    
+    Write-Host ""
 }
 
 function Show-Usage {
-    Write-Host "Usage: install.ps1 [install|uninstall|update|status|help]"
+    Write-Host "`nUsage: install.ps1 [command]`n"
+    Write-Host "Commands:"
+    Write-Host "  install    - Download and install $ProgramName"
+    Write-Host "  uninstall  - Remove $ProgramName"
+    Write-Host "  update     - Update to the latest version"
+    Write-Host "  status     - Show installation status"
+    Write-Host "  help       - Show this help message"
+    Write-Host ""
 }
 
 switch ($Command.ToLower()) {
