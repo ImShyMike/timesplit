@@ -98,7 +98,7 @@ function Create-StartupShortcut {
         $Shortcut.TargetPath = $targetPath
         $Shortcut.Arguments = "run"
         $Shortcut.WorkingDirectory = $InstallDir
-        $Shortcut.WindowStyle = 7  # Minimized
+        $Shortcut.WindowStyle = 0
         $Shortcut.Description = "TimeSplit - Automatic startup"
         $Shortcut.Save()
         
@@ -161,7 +161,7 @@ function Install-Program {
     # Start the program immediately
     Write-Info "Starting $ProgramName..."
     try {
-        Start-Process -FilePath $InstallPath -ArgumentList "run" -WindowStyle Minimized
+        Start-Process -FilePath $InstallPath -ArgumentList "run" -WindowStyle Hidden
         Write-Success "$ProgramName started successfully!"
     } catch {
         Write-Err "Failed to start ${ProgramName}: $_"
