@@ -93,12 +93,19 @@ function Create-StartupShortcut {
     param([string]$targetPath)
     
     try {
+        $vbsPath = Join-Path -Path $InstallDir -ChildPath "timesplit_background_launch.vbs"
+        $vbsContent = @"
+Set WshShell = CreateObject("WScript.Shell")
+WshShell.Run """$targetPath"" run", 0, False
+"@
+        Set-Content -Path $vbsPath -Value $vbsContent -Force
+        
+        # Create shortcut
         $WScriptShell = New-Object -ComObject WScript.Shell
         $Shortcut = $WScriptShell.CreateShortcut($ShortcutPath)
-        $Shortcut.TargetPath = $targetPath
-        $Shortcut.Arguments = "run"
+        $Shortcut.TargetPath = "wscript.exe"
+        $Shortcut.Arguments = """$vbsPath"""
         $Shortcut.WorkingDirectory = $InstallDir
-        $Shortcut.WindowStyle = 0
         $Shortcut.Description = "TimeSplit - Automatic startup"
         $Shortcut.Save()
         
