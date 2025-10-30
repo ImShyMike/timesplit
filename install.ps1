@@ -164,7 +164,7 @@ function Install-Program {
         Start-Process -FilePath $InstallPath -ArgumentList "run" -WindowStyle Minimized
         Write-Success "$ProgramName started successfully!"
     } catch {
-        Write-Err "Failed to start $ProgramName: $_"
+        Write-Err "Failed to start ${ProgramName}: $_"
         Write-Info "You can start it manually with: $ProgramName run"
     }
 
