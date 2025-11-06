@@ -185,15 +185,7 @@ fn add_server(settings: &mut AppConfig, url: String, key: String, main: bool) {
 }
 
 fn remove_server(settings: &mut AppConfig, index: usize) {
-    if settings.servers.is_empty() {
-        error!("No servers to remove.");
-        std::process::exit(1);
-    }
-
-    if index >= settings.servers.len() {
-        error!("Server index {} is out of range.", index);
-        std::process::exit(1);
-    }
+    validate_server_index(settings, index, "remove");
 
     if settings.servers.len() == 1 {
         error!("Cannot remove the last remaining server. Add a new server first.");
@@ -205,15 +197,7 @@ fn remove_server(settings: &mut AppConfig, index: usize) {
 }
 
 fn set_main_server(settings: &mut AppConfig, index: usize) {
-    if settings.servers.is_empty() {
-        error!("No servers to set as main.");
-        std::process::exit(1);
-    }
-
-    if index >= settings.servers.len() {
-        error!("Server index {} is out of range.", index);
-        std::process::exit(1);
-    }
+    validate_server_index(settings, index, "set as main");
 
     if index == 0 {
         info!(
@@ -233,6 +217,19 @@ fn mask_key(key: &str) -> String {
         "*".repeat(key.len())
     } else {
         format!("{}...{}", &key[..4], &key[key.len() - 4..])
+    }
+}
+
+/// Validate server index, checking for empty list and out of range
+fn validate_server_index(settings: &AppConfig, index: usize, operation: &str) {
+    if settings.servers.is_empty() {
+        error!("No servers to {}.", operation);
+        std::process::exit(1);
+    }
+
+    if index >= settings.servers.len() {
+        error!("Server index {} is out of range.", index);
+        std::process::exit(1);
     }
 }
 

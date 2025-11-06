@@ -12,6 +12,40 @@ use tracing::{debug, error, warn};
 
 use crate::AppState;
 
+/// Process main server response, handling errors and extracting JSON
+async fn process_main_server_response(
+    response: reqwest::Response,
+    url: &str,
+) -> Result<(StatusCode, Value), Response> {
+    let status = response.status();
+
+    if !status.is_success() {
+        let body_bytes = response.bytes().await.map_err(|e| {
+            error!(
+                "Failed to read main server response body from {}: {}",
+                url, e
+            );
+            (StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error").into_response()
+        })?;
+        let body_text = String::from_utf8_lossy(&body_bytes);
+        error!(
+            "Main server returned non-success status {} for {}: {}",
+            status, url, body_text
+        );
+        return Err((StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error").into_response());
+    }
+
+    let json_data = response.json::<Value>().await.map_err(|e| {
+        error!(
+            "Failed to parse JSON from main server {}: {}",
+            url, e
+        );
+        (StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error").into_response()
+    })?;
+
+    Ok((status, json_data))
+}
+
 pub async fn statusbar_handler(
     state: State<AppState>,
     headers: HeaderMap,
@@ -21,7 +55,7 @@ pub async fn statusbar_handler(
     let formatted_url = get_formatted_url(&uri, &state.servers[0].0);
 
     debug!("Getting status bar from main server... ({})", formatted_url);
-    let main_response = match request(
+    let main_response = request(
         Method::GET,
         &formatted_url,
         &state.client,
@@ -31,44 +65,15 @@ pub async fn statusbar_handler(
         None,
     )
     .await
-    {
-        Ok(response) => response,
-        Err(err) => {
-            error!(
-                "Failed to get response from main server {}: {}",
-                formatted_url, err
-            );
-            return Err(
-                (StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error").into_response()
-            );
-        }
-    };
-
-    let status = main_response.status();
-
-    if !status.is_success() {
-        let body_bytes = main_response.bytes().await.map_err(|e| {
-            error!(
-                "Failed to read main server response body from {}: {}",
-                formatted_url, e
-            );
-            (StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error").into_response()
-        })?;
-        let body_text = String::from_utf8_lossy(&body_bytes);
+    .map_err(|err| {
         error!(
-            "Main server returned non-success status {} for {}: {}",
-            status, formatted_url, body_text
-        );
-        return Err((StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error").into_response());
-    }
-
-    let json_data = main_response.json::<Value>().await.map_err(|e| {
-        error!(
-            "Failed to parse JSON from main server {}: {}",
-            formatted_url, e
+            "Failed to get response from main server {}: {}",
+            formatted_url, err
         );
         (StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error").into_response()
     })?;
+
+    let (_status, json_data) = process_main_server_response(main_response, &formatted_url).await?;
 
     Ok(Json(json_data))
 }
@@ -152,31 +157,7 @@ pub async fn heartbeats_handler(
         }
     };
 
-    let status = main_response.status();
-
-    if !status.is_success() {
-        let body_bytes = main_response.bytes().await.map_err(|e| {
-            error!(
-                "Failed to read main server response body from {}: {}",
-                formatted_url, e
-            );
-            (StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error").into_response()
-        })?;
-        let body_text = String::from_utf8_lossy(&body_bytes);
-        error!(
-            "Main server returned non-success status {} for {}: {}",
-            status, formatted_url, body_text
-        );
-        return Err((StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error").into_response());
-    }
-
-    let json_data = main_response.json::<Value>().await.map_err(|e| {
-        error!(
-            "Failed to parse JSON from main server {}: {}",
-            formatted_url, e
-        );
-        (StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error").into_response()
-    })?;
+    let (status, json_data) = process_main_server_response(main_response, &formatted_url).await?;
 
     Ok((status, Json(json_data)).into_response())
 }
