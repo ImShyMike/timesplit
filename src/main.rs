@@ -139,7 +139,7 @@ fn setup_config() {
 
     // write new wakatime config
     let wakatime_config_content = format!(
-        "[settings]\napi_url = \"http://{}\"\napi_key = \"9542e1b0-59c3-4238-b51a-e4e4757038ad\"\nheartbeat_rate_limit_seconds = 30\n", // dummy key
+        "[settings]\napi_url = http://{}\napi_key = 9542e1b0-59c3-4238-b51a-e4e4757038ad\nheartbeat_rate_limit_seconds = 30\n", // dummy key
         settings.host
     );
 
