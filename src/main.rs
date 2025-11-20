@@ -20,8 +20,8 @@ use axum::{
     routing::{get, post},
 };
 use clap::{Parser, Subcommand};
+use ini::Ini;
 use reqwest::Client;
-
 use tower_http::trace::TraceLayer;
 use tracing::{error, info, warn};
 use tracing_subscriber::EnvFilter;
@@ -55,6 +55,8 @@ struct Args {
 enum Command {
     /// Start the HTTP server
     Run,
+    /// Setup WakaTime config
+    Setup,
     /// Change the configuration
     #[command(subcommand, arg_required_else_help = true)]
     Config(ConfigCommand),
@@ -101,7 +103,129 @@ async fn main() {
 
     match args.command {
         Command::Run => run_server().await,
+        Command::Setup => setup_config(),
         Command::Config(action) => change_config(action),
+    }
+}
+
+fn setup_config() {
+    let home_path = match dirs::home_dir() {
+        Some(path) => path,
+        None => {
+            error!("Unable to get your home dir!");
+            std::process::exit(1);
+        }
+    };
+
+    let wakatime_config_path = home_path.join(".wakatime.cfg");
+    let timesplit_config_path = get_config_path();
+
+    // backup if the wakatime config exists
+    if wakatime_config_path.exists() {
+        fs::copy(&wakatime_config_path, home_path.join(".wakatime.cfg.bak")).unwrap_or_else(
+            |err| {
+                error!("Failed to backup WakaTime config: {}", err);
+                std::process::exit(1);
+            },
+        );
+        info!("Backed up existing WakaTime config to .wakatime.cfg.bak");
+    }
+
+    ensure_config_file_exists(&timesplit_config_path);
+
+    let mut settings = load_config(&timesplit_config_path);
+
+    sync_main_server_from_wakatime(&mut settings, &wakatime_config_path, &timesplit_config_path);
+
+    // write new wakatime config
+    let wakatime_config_content = format!(
+        "[settings]\napi_url = \"http://{}\"\napi_key = \"9542e1b0-59c3-4238-b51a-e4e4757038ad\"\nheartbeat_rate_limit_seconds = 30\n", // dummy key
+        settings.host
+    );
+
+    match fs::write(&wakatime_config_path, wakatime_config_content) {
+        Ok(_) => info!(
+            "WakaTime config written to '{}'",
+            wakatime_config_path.display()
+        ),
+        Err(err) => {
+            error!(
+                "Failed to write WakaTime config to {}: {}",
+                wakatime_config_path.display(),
+                err
+            );
+            std::process::exit(1);
+        }
+    }
+}
+
+fn sync_main_server_from_wakatime(
+    settings: &mut AppConfig,
+    wakatime_config_path: &Path,
+    timesplit_config_path: &Path,
+) {
+    let Some((legacy_url, legacy_key)) = read_wakatime_settings(wakatime_config_path) else {
+        return;
+    };
+
+    let timesplit_host_url = format!("http://{}", settings.host);
+    if legacy_url == timesplit_host_url {
+        info!(
+            "Existing WakaTime config already points to the timesplit host; skipping server update."
+        );
+        return;
+    }
+
+    if legacy_url.is_empty() || legacy_key.is_empty() {
+        warn!("Skipping server sync because the stored WakaTime url/key is empty.");
+        return;
+    }
+
+    if settings.servers.is_empty() {
+        settings
+            .servers
+            .push((legacy_url.clone(), legacy_key.clone()));
+    } else {
+        settings.servers[0] = (legacy_url.clone(), legacy_key.clone());
+    }
+
+    save_config(settings, timesplit_config_path);
+    info!(
+        "Primary server updated to '{}' based on the existing WakaTime configuration.",
+        legacy_url
+    );
+}
+
+fn read_wakatime_settings(path: &Path) -> Option<(String, String)> {
+    if !path.exists() {
+        return None;
+    }
+
+    let wakatime_config = Ini::load_from_file(path).unwrap_or_else(|err| {
+        warn!(
+            "Unable to parse WakaTime config at '{}': {}",
+            path.display(),
+            err
+        );
+        Ini::new()
+    });
+
+    let config_section = wakatime_config
+        .section(Some("settings"))
+        .unwrap_or_else(|| {
+            error!(
+                "No [settings] section found in WakaTime config at '{}'",
+                path.display()
+            );
+            std::process::exit(1);
+        });
+
+    let api_url = config_section.get("api_url");
+    let api_key = config_section.get("api_key");
+
+    match (api_url, api_key) {
+        (Some(url), Some(key)) => Some((url.to_string(), key.to_string())),
+        _ => None,
     }
 }
 

@@ -36,10 +36,7 @@ async fn process_main_server_response(
     }
 
     let json_data = response.json::<Value>().await.map_err(|e| {
-        error!(
-            "Failed to parse JSON from main server {}: {}",
-            url, e
-        );
+        error!("Failed to parse JSON from main server {}: {}", url, e);
         (StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error").into_response()
     })?;
 

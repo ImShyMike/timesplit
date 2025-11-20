@@ -82,7 +82,17 @@ Commands:
   help        Show this help message
 ```
 
-## Usage
+## Usage/Setup
+
+### Automatic
+
+After installing run the following command to automatically add `timesplit` to your WakaTime config file and set `timesplit`'s main server to the one previously in the WakaTime config file.
+
+```bash
+timesplit setup
+```
+
+### Manual
 
 In your `~/.wakatime.cfg` file, set the API url to `timesplit`'s addresss.
 
