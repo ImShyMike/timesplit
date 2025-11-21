@@ -1,5 +1,7 @@
 <p align="center"><a href="https://crates.io/crates/timesplit"><img src="https://raw.githubusercontent.com/ImShyMike/timesplit/refs/heads/main/assets/text.svg" alt="timesplit"></a></p>
 
+![Demo GIF](./demo.gif)
+
 <p align="center">The easy way to use multiple WakaTime compatible instances at once!</p>
 
 <p align="center">
