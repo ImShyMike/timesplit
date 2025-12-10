@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -e
+set -euo pipefail
 
 PROGRAM_NAME="timesplit"
 INSTALL_DIR="/usr/local/bin"
