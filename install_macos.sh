@@ -133,14 +133,24 @@ EOF
 }
 
 load_service() {
-    launchctl bootout "gui/$UID" "$PLIST_PATH" 2>/dev/null || true
-    launchctl bootstrap "gui/$UID" "$PLIST_PATH"
-    launchctl enable "gui/$UID/${LAUNCH_AGENT_LABEL}"
-    launchctl kickstart -k "gui/$UID/${LAUNCH_AGENT_LABEL}"
+    local label="${LAUNCH_AGENT_LABEL}"
+    local domain="gui/$UID"
+
+    launchctl bootout "${domain}/${label}" 2>/dev/null || true
+
+    if ! launchctl bootstrap "${domain}" "${PLIST_PATH}" 2>/dev/null; then
+        print_error "launchctl bootstrap failed. Try manually: launchctl bootstrap ${domain} ${PLIST_PATH}"
+        return 1
+    fi
+
+    launchctl enable "${domain}/${label}" 2>/dev/null || true
+    launchctl kickstart -k "${domain}/${label}" 2>/dev/null || true
+
+    print_success "LaunchAgent registered and started."
 }
 
 unload_service() {
-    launchctl bootout "gui/$UID" "$PLIST_PATH" 2>/dev/null || true
+    launchctl bootout "gui/$UID/${LAUNCH_AGENT_LABEL}" 2>/dev/null || true
 }
 
 install_program() {
